@@ -34,6 +34,16 @@ from graphics_context import BaseComponent, GraphicsContext
 from settings import fetch_command_line_arguments
 from text import text
 from themes import themes
+# ——— Nakṣatra settings ———
+NAKSHATRAS = [
+    "Aśvini", "Bharanī", "Kṛttikā", "Rohiṇī", "Mṛgaśīrṣā",
+    "Ārdrā", "Punarvasu", "Puṣya", "Āśleṣā", "Maghā",
+    "Pūrva Phālgunī", "Uttara Phālgunī", "Hasta", "Chitrā",
+    "Svātī", "Viśākhā", "Anurādhā", "Jyeṣṭhā", "Mūla",
+    "Pūrva Aṣāḍhā", "Uttara Aṣāḍhā", "Śrāvaṇa", "Dhaniṣṭhā",
+    "Śatabhīṣā", "Pūrva Bhādrapadā", "Uttara Bhādrapadā", "Revati"
+]
+ANGLE_STEP_NAK = 360.0 / len(NAKSHATRAS)   # ≈ 13.333° per nakṣatra
 
 
 class StarWheel(BaseComponent):
@@ -260,38 +270,73 @@ class StarWheel(BaseComponent):
             """
             return (d - calendar.julian_day(year=2014, month=3, day=20, hour=16, minute=55, sec=0)) / 365.25 * unit_rev
 
-        # Write month names around the date scale
-        context.set_font_size(2.3)
-        context.set_color(theme['date'])
-        mn: int
-        mlen: int
-        name: str
-        for mn, (mlen, name) in enumerate(text[language]['months']):
-            theta = s * theta2014(calendar.julian_day(year=2014, month=mn + 1, day=mlen // 2, hour=12, minute=0, sec=0))
+        ## Write month names around the date scale
+        #context.set_font_size(2.3)
+        #context.set_color(theme['date'])
+        #mn: int
+        #mlen: int
+        #name: str
+        #for mn, (mlen, name) in enumerate(text[language]['months']):
+        #    theta = s * theta2014(calendar.julian_day(year=2014, month=mn + 1, day=mlen // 2, hour=12, minute=0, sec=0))
+        #
+        #    # We supply circular_text with a negative radius here, as a fudge to orientate the text with bottom-inwards
+        #    context.circular_text(text=name, centre_x=0, centre_y=0, radius=-(r_1 * 0.65 + r_2 * 0.35),
+        #                          azimuth=theta / unit_deg + 180,
+        #                          spacing=1, size=1)
+        #
+        ## Draw ticks for the days of the month
+        #for mn, (mlen, name) in enumerate(text[language]['months']):
+        #    # Tick marks for each day
+        #    for d in range(1, mlen + 1):
+        #        theta = s * theta2014(calendar.julian_day(year=2014, month=mn + 1, day=d, hour=0, minute=0, sec=0))
+        #
+        #        # Days of the month which are multiples of 5 get longer ticks
+        #        r_tick_len: float = r_3 if (d % 5) else r_4
+        #
+        #        # The last day of each month is drawn as a dividing line between months
+        #        if d == mlen:
+        #            r_tick_len = r_5
+        #
+        #        # Draw line
+        #        context.begin_path()
+        #        context.move_to(x=r_2 * cos(theta), y=-r_2 * sin(theta))
+        #        context.line_to(x=r_tick_len * cos(theta), y=-r_tick_len * sin(theta))
+        #        context.stroke(line_width=1, dotted=False)
+        
+        # ——— Nakṣatra scale around the date rim ———
+                 context.set_font_size(1.8)                  # adjust as needed
+                 context.set_color(theme['date'])
+                 
+                 radius_label = r_1 * 0.75 + r_2 * 0.25      # mid-ring for labels
+                 tick_outer  = r_1                           # outer edge
+                 tick_inner  = r_1 - 0.15 * unit_cm          # tick length
+                 
+                 for i, nak in enumerate(NAKSHATRAS):
+                     # compute azimuth (degrees → radians, clockwise from vernal equinox)
+                     theta_deg = i * ANGLE_STEP_NAK
+                     theta = (s * theta2014(  # reuse the same theta2014() converter, or compute your own base angle
+                         calendar.julian_day(year=2014, month=3, day=20, hour=16, minute=55, sec=0)
+                     ) / unit_deg) + theta_deg
+                 
+                     # Draw tick
+                     context.begin_path()
+                     context.move_to(x=tick_outer * cos(theta), y=-tick_outer * sin(theta))
+                     context.line_to(x=tick_inner * cos(theta), y=-tick_inner * sin(theta))
+                     context.stroke(line_width=1, dotted=False)
+                 
+                     # Draw label at mid-radius
+                     x_lab = radius_label * cos(theta + ANGLE_STEP_NAK/2 * unit_deg)
+                     y_lab = -radius_label * sin(theta + ANGLE_STEP_NAK/2 * unit_deg)
+                     context.text(
+                         text=nak,
+                         x=x_lab,
+                         y=y_lab,
+                         h_align=0,
+                         v_align=0,
+                         gap=0,
+                         rotation=unit_rev/2 - (theta + ANGLE_STEP_NAK/2 * unit_deg)
+                     )
 
-            # We supply circular_text with a negative radius here, as a fudge to orientate the text with bottom-inwards
-            context.circular_text(text=name, centre_x=0, centre_y=0, radius=-(r_1 * 0.65 + r_2 * 0.35),
-                                  azimuth=theta / unit_deg + 180,
-                                  spacing=1, size=1)
-
-        # Draw ticks for the days of the month
-        for mn, (mlen, name) in enumerate(text[language]['months']):
-            # Tick marks for each day
-            for d in range(1, mlen + 1):
-                theta = s * theta2014(calendar.julian_day(year=2014, month=mn + 1, day=d, hour=0, minute=0, sec=0))
-
-                # Days of the month which are multiples of 5 get longer ticks
-                r_tick_len: float = r_3 if (d % 5) else r_4
-
-                # The last day of each month is drawn as a dividing line between months
-                if d == mlen:
-                    r_tick_len = r_5
-
-                # Draw line
-                context.begin_path()
-                context.move_to(x=r_2 * cos(theta), y=-r_2 * sin(theta))
-                context.line_to(x=r_tick_len * cos(theta), y=-r_tick_len * sin(theta))
-                context.stroke(line_width=1, dotted=False)
 
             # Write numeric labels for the 10th, 20th and last day of each month
             for d in [10, 20, mlen]:
